@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  # ----------------------------------------------------
+  # Core NetGraph Relational Database (Local PostgreSQL)
+  # ----------------------------------------------------
+  netgraph-db:
+    image: postgres:16-alpine
+    container_name: netgraph-db
+    restart: always
+    environment:
+      POSTGRES_USER: netgraph
+      POSTGRES_PASSWORD: netgraph_password
+      POSTGRES_DB: netgraph
+    ports:
+      - "5432:5432"
+    volumes:
+      - netgraph-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U netgraph -d netgraph"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ----------------------------------------------------
+  # Local Zep Memory Database (pgvector PostgreSQL)
+  # ----------------------------------------------------
+  zep-db:
+    image: ankane/pgvector:v0.5.1
+    container_name: zep-db
+    restart: always
+    environment:
+      POSTGRES_USER: zep
+      POSTGRES_PASSWORD: zep_password
+      POSTGRES_DB: zep
+    ports:
+      - "5433:5432"
+    volumes:
+      - zep-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zep -d zep"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ----------------------------------------------------
+  # Local Zep Memory Server
+  # ----------------------------------------------------
+  zep:
+    image: zepai/zep:latest
+    container_name: zep-server
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - ZEP_DATABASE_DSN=postgres://zep:zep_password@zep-db:5432/zep?sslmode=disable
+      - ZEP_AUTH_REQUIRED=false
+      - ZEP_LLM_PROVIDER=openai
+      # Placeholders to satisfy startup configs - our backend will orchestrate queries
+      - ZEP_OPENAI_API_KEY=local-key-not-needed-if-mocked
+    depends_on:
+      zep-db:
+        condition: service_healthy
+
+volumes:
+  netgraph-db-data:
+  zep-db-data:
