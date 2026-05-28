@@ -2018,11 +2018,22 @@ function NetworkView({
                   onMouseUp={handleSVGMouseUpOrLeave}
                   onMouseLeave={handleSVGMouseUpOrLeave}
                 >
-                  {/* Draw edges (connecting lines) */}
+                  {/* Draw edges (connecting lines tinted to match source node theme) */}
                   {links.map((l, index) => {
                     const sourceNode = nodes.find(n => n.id === l.source);
                     const targetNode = nodes.find(n => n.id === l.target);
                     if (!sourceNode || !targetNode) return null;
+                    
+                    const sourceContact = contacts.find(c => c.id === l.source);
+                    const isUser = sourceContact?.type === 'user';
+                    const neonColors = ['#10b981', '#8b5cf6', '#f43f5e', '#06b6d4', '#d97706', '#f97316', '#3b82f6'];
+                    let hash = 0;
+                    const name = sourceNode.name || "";
+                    for (let i = 0; i < name.length; i++) {
+                      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+                    }
+                    const lineColor = isUser ? '#10b981' : neonColors[Math.abs(hash) % neonColors.length];
+                    
                     return (
                       <line 
                         key={index}
@@ -2030,50 +2041,70 @@ function NetworkView({
                         y1={sourceNode.y}
                         x2={targetNode.x}
                         y2={targetNode.y}
-                        stroke="rgba(99, 102, 241, 0.25)"
-                        strokeWidth="2"
+                        stroke={lineColor}
+                        strokeWidth="1.8"
+                        opacity="0.22"
                       />
                     );
                   })}
 
-                  {/* Draw Nodes (dots + titles) */}
-                  {nodes.map(n => (
-                    <g 
-                      key={n.id}
-                      transform={`translate(${n.x}, ${n.y})`}
-                      onMouseDown={(e) => handleNodeMouseDown(n.id, e)}
-                      onClick={() => {
-                        const targetC = contacts.find(c => c.id === n.id);
-                        if (targetC) {
-                          setSelectedContact(targetC);
-                          setActiveTab('contacts');
-                        }
-                      }}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <circle r="22" fill="#0e0e12" stroke="var(--accent-indigo)" strokeWidth="2.5" />
-                      <circle r="4" fill="var(--text-primary)" />
-                      {/* Node Text label */}
-                      <text 
-                        className="node-label" 
-                        y="-30" 
-                        textAnchor="middle" 
-                        fontWeight="700"
-                        fill="var(--text-primary)"
+                  {/* Draw Nodes (Zep-inspired vibrant colorful neon bubbles + active glows) */}
+                  {nodes.map(n => {
+                    const targetC = contacts.find(c => c.id === n.id);
+                    const isUser = targetC?.type === 'user';
+                    
+                    const neonColors = ['#10b981', '#8b5cf6', '#f43f5e', '#06b6d4', '#d97706', '#f97316', '#3b82f6'];
+                    let hash = 0;
+                    const name = n.name || "";
+                    for (let i = 0; i < name.length; i++) {
+                      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+                    }
+                    const nodeColor = isUser ? '#10b981' : neonColors[Math.abs(hash) % neonColors.length];
+                    
+                    return (
+                      <g 
+                        key={n.id}
+                        transform={`translate(${n.x}, ${n.y})`}
+                        onMouseDown={(e) => handleNodeMouseDown(n.id, e)}
+                        onClick={() => {
+                          if (targetC) {
+                            setSelectedContact(targetC);
+                            setActiveTab('contacts');
+                          }
+                        }}
+                        style={{ cursor: 'pointer' }}
                       >
-                        {n.name}
-                      </text>
-                      <text 
-                        className="node-label" 
-                        y="-16" 
-                        textAnchor="middle" 
-                        fill="var(--text-muted)" 
-                        fontSize="9"
-                      >
-                        {n.company}
-                      </text>
-                    </g>
-                  ))}
+                        {/* Concentric outer dotted glow ring */}
+                        <circle r="28" fill="none" stroke={nodeColor} strokeWidth="1.5" strokeDasharray="4,4" opacity="0.35" />
+                        {/* Outer high-contrast structural boundary */}
+                        <circle r="21" fill="#0f0f11" stroke={nodeColor} strokeWidth="2.5" />
+                        {/* Central glowing core dot */}
+                        <circle r="5.5" fill={nodeColor} />
+                        {/* Node Name label */}
+                        <text 
+                          className="node-label" 
+                          y="-35" 
+                          textAnchor="middle" 
+                          fontWeight="700"
+                          fill="var(--text-primary)"
+                          style={{ textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}
+                        >
+                          {n.name}
+                        </text>
+                        {/* Node Company label */}
+                        <text 
+                          className="node-label" 
+                          y="-21" 
+                          textAnchor="middle" 
+                          fill="var(--text-muted)" 
+                          fontSize="9"
+                          style={{ textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}
+                        >
+                          {n.company}
+                        </text>
+                      </g>
+                    );
+                  })}
                 </svg>
               </div>
             </>
@@ -2658,4 +2689,5 @@ function SettingsView({
     </div>
   );
 }
+
 

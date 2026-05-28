@@ -1,27 +1,62 @@
-# Node
-node_modules/
-dist/
-.eslintcache
+# ==========================================
+# NetGraph Open-Source Git Ignore Rules
+# ==========================================
 
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
+# 1. Dependency Directories
+node_modules/
+backend/venv/
+backend/env/
+.venv/
 env/
 venv/
-pip-log.txt
-pip-delete-this-directory.txt
+ENV/
+bin/
+lib/
+include/
+
+# 2. Local Configuration & Secrets
 .env
-.venv
-poetry.lock
-.pytest_cache/
+.env*.local
+backend/.env
+frontend/.env
 
-# Databases
+# 3. Databases (Keep local development clean)
 *.db
+*.db-journal
 *.sqlite
+*.sqlite3
+netgraph.db
+backend/netgraph.db
 
-# OS
+# 4. Build & Distribution Outputs
+dist/
+build/
+out/
+.next/
+*.egg-info/
+.eggs/
+htmlcov/
+.tox/
+.pytest_cache/
+.eslintcache
+
+# 5. Compiled Python Code
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 6. IDE / Editor Configurations
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# 7. Operating System Files
 .DS_Store
+.DS_Store?
 Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
