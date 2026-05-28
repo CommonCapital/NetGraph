@@ -24,7 +24,8 @@ import {
   XCircle,
   HelpCircle,
   LogOut,
-  FolderMinus
+  FolderMinus,
+  Upload
 } from 'lucide-react';
 
 // --- Lightweight GraphQL Request Helper ---
@@ -542,6 +543,7 @@ export default function App() {
                 setCurrentUser={setCurrentUser} 
                 contacts={contacts}
                 handleLogout={handleLogout} 
+                onImportComplete={fetchInitialDetails}
               />
             )}
           </main>
@@ -2500,13 +2502,15 @@ interface SettingsViewProps {
   setCurrentUser: React.Dispatch<React.SetStateAction<any>>;
   contacts: Contact[];
   handleLogout: () => void;
+  onImportComplete: () => void;
 }
 
 function SettingsView({
   currentUser,
   setCurrentUser,
   contacts,
-  handleLogout
+  handleLogout,
+  onImportComplete
 }: SettingsViewProps) {
   const [displayName, setDisplayName] = useState(currentUser?.displayName || '');
   const [bio, setBio] = useState(currentUser?.bio || '');
@@ -2559,6 +2563,108 @@ function SettingsView({
     } catch (err: any) {
       alert(`Export failed: ${err.message}`);
     }
+  };
+
+  const handleImportCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      const text = evt.target?.result as string;
+      if (!text) return;
+
+      const lines = text.split(/\r?\n/);
+      if (lines.length <= 1) {
+        alert("The selected CSV file appears to be empty or has no header row.");
+        return;
+      }
+
+      const parseCSVLine = (line: string) => {
+        const result = [];
+        let current = "";
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
+          if (char === '"') {
+            inQuotes = !inQuotes;
+          } else if (char === ',' && !inQuotes) {
+            result.push(current.trim());
+            current = "";
+          } else {
+            current += char;
+          }
+        }
+        result.push(current.trim());
+        return result;
+      };
+
+      const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase());
+      const nameIdx = headers.indexOf("name");
+      const emailIdx = headers.indexOf("email");
+      const phoneIdx = headers.indexOf("phone");
+      const roleIdx = headers.indexOf("role") !== -1 ? headers.indexOf("role") : headers.indexOf("title");
+      const companyIdx = headers.indexOf("company") !== -1 ? headers.indexOf("company") : headers.indexOf("organization");
+      const tagsIdx = headers.indexOf("tags");
+      const notesIdx = headers.indexOf("notes") !== -1 ? headers.indexOf("notes") : headers.indexOf("description");
+
+      if (nameIdx === -1) {
+        alert("Invalid CSV format. The file MUST contain a 'Name' header column.");
+        return;
+      }
+
+      const confirmImport = window.confirm(`Found ${lines.length - 1} potential contacts. Proceed to import them into your NetGraph CRM?`);
+      if (!confirmImport) return;
+
+      let importedCount = 0;
+      let failedCount = 0;
+
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        const row = parseCSVLine(line);
+        const name = row[nameIdx];
+        if (!name) continue;
+
+        const email = emailIdx !== -1 ? row[emailIdx] : "";
+        const phone = phoneIdx !== -1 ? row[phoneIdx] : "";
+        const role = roleIdx !== -1 ? row[roleIdx] : "";
+        const company = companyIdx !== -1 ? row[companyIdx] : "";
+        const rawTags = tagsIdx !== -1 ? row[tagsIdx] : "";
+        const notes = notesIdx !== -1 ? row[notesIdx] : "";
+
+        const tags = rawTags ? rawTags.split(/[;,]/).map(t => t.trim()).filter(Boolean) : [];
+
+        try {
+          await fetchGraphQL(`
+            mutation ImportContact($input: ContactInput!) {
+              createContact(input: $input) {
+                id
+              }
+            }
+          `, {
+            input: {
+              name,
+              type: "text",
+              email: email || null,
+              phone: phone || null,
+              currentRole: role || null,
+              currentCompany: company || null,
+              tags,
+              notes: notes || null
+            }
+          });
+          importedCount++;
+        } catch (err) {
+          failedCount++;
+        }
+      }
+
+      alert(`Import complete! Successfully ingested ${importedCount} contacts.${failedCount > 0 ? ` Failed to ingest ${failedCount} contacts.` : ''}`);
+      onImportComplete();
+    };
+    reader.readAsText(file);
   };
 
   const handleDeleteAccount = () => {
@@ -2671,6 +2777,32 @@ function SettingsView({
             <button type="button" className="btn btn-secondary" style={{ width: '100%' }} onClick={handleExportData}>
               Export Database (.JSON)
             </button>
+
+            <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px dashed var(--border-color)' }}>
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: '1.4', marginBottom: '8px' }}>
+                Import network connections directly from a CSV spreadsheet (columns: <em>Name, Email, Phone, Role, Company, Tags, Notes</em>).
+              </p>
+              <label 
+                className="btn btn-secondary" 
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  gap: '8px', 
+                  cursor: 'pointer',
+                  width: '100%'
+                }}
+              >
+                <Upload size={16} />
+                Import Connections (.CSV)
+                <input 
+                  type="file" 
+                  accept=".csv" 
+                  onChange={handleImportCSV} 
+                  style={{ display: 'none' }} 
+                />
+              </label>
+            </div>
           </div>
 
           <div className="glass-card" style={{ border: '1px solid rgba(239, 68, 68, 0.25)', background: 'rgba(239, 68, 68, 0.02)' }}>
